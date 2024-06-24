@@ -1,3 +1,3 @@
 # 说明
 
-这个版本基于 Autodock Vina 进行开发。
+这个版本基于 AutoDock Vina 修改。
