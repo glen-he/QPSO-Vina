@@ -53,6 +53,9 @@
 #include <sstream>
 #include <iomanip>
 
+#include <boost/filesystem.hpp>
+#include <fstream>
+
 #include <iostream>
 #include <exception>
 #include <vector>
@@ -77,6 +80,8 @@
 #include "coords.h"
 /******************************************************/
 
+
+
 /******************************************************/
 std::string num_to_string(int num) {
     std::string result;
@@ -97,8 +102,8 @@ std::string num_to_string(int num) {
 
 void exportForMDSimulation(model m, model ref_m, output_type candidate, std::string& remark, int step, int number) {
     std::ostringstream oss;
-	oss << "dk_s" << std::setw(2) << std::setfill('0') << step + 1 << "p" << std::setw(2) << std::setfill('0') << number + 1<< ".pdbqt";
-	std::string output_tmp = oss.str();
+    oss << "dk_s" << std::setw(4) << std::setfill('0') << step + 1 << "p" << std::setw(4) << std::setfill('0') << number + 1 << ".pdbqt";
+    std::string output_tmp = oss.str();
 
     m.set(candidate.c);
     const fl lb = m.rmsd_lower_bound(ref_m);
@@ -106,8 +111,17 @@ void exportForMDSimulation(model m, model ref_m, output_type candidate, std::str
 
     remark = vina_remark(candidate.e, lb, ub);
 
-    // 输出为pdbqt文件
-    ofile f(make_path(output_tmp));
+    // 默认输出目录，返回上一级目录并创建 dk 文件夹
+    std::string folder = "../dk";
+
+    // 确保目标文件夹存在
+    boost::filesystem::create_directories(folder);
+
+    // 生成完整路径
+    std::string full_path = folder + "/" + output_tmp;
+
+    // 输出为 pdbqt 文件
+    ofile f(full_path);
     m.write_model(f, 1);
 }
 
@@ -146,7 +160,7 @@ output_type importMDSimulationResults(model& m, int step, int number) {
     // intramolecular_energy
     fl intramolecular_energy = m.eval_intramolecular(prec, authentic_v, c);
     std::string ligand_name;
-	std::cout << "输入第" << std::setw(2) << std::setfill('0') << step + 1 << "步，第" << std::setw(2) << std::setfill('0') << number + 1 << "个粒子，经过MD模拟后的配体" << std::endl;
+	std::cout << "输入第" << std::setw(4) << std::setfill('0') << step + 1 << "步，第" << std::setw(4) << std::setfill('0') << number + 1 << "个粒子，经过MD模拟后的配体" << std::endl;
     std::cin >> ligand_name;
 
     std::cout << "输入的信息为：" << ligand_name << std::endl;
@@ -192,7 +206,9 @@ void pso_mutate_conf(output_type& candidate, output_type& candidate_1, model& m,
 	int y;
 
 	/* 输出Docking之后信息 */
-	std::string outputInfo_Docking = "OutInfo_Docking_s" + num_to_string(step + 1) + ".csv";
+	// std::string outputInfo_Docking = "../dk_info/OutInfo_Docking_s" + num_to_string(step + 1) + ".csv";
+	std::string outputInfo_Docking = "../dk_info/OutInfo_Docking_s" + std::string(4 - num_to_string(step + 1).length(), '0') + num_to_string(step + 1) + ".csv";
+	boost::filesystem::create_directories("../dk_info");
 
 	ofile file_dk(make_path(outputInfo_Docking));
 	file_dk << "记录Docking后每个粒子信息\n";
@@ -200,7 +216,8 @@ void pso_mutate_conf(output_type& candidate, output_type& candidate_1, model& m,
 	std::string remark;
 
 	/* 输出MD之后信息 */
-	std::string outputInfo_MD = "OutInfo_MD_s" + num_to_string(step + 1) + ".csv";
+	std::string outputInfo_MD = "../md_info/OutInfo_MD_s" + std::string(4 - num_to_string(step + 1).length(), '0') + num_to_string(step + 1) + ".csv";
+	boost::filesystem::create_directories("../md_info");
 
 	ofile file_md(make_path(outputInfo_MD));
 	file_md << "记录MD后的能量值\n";
@@ -226,13 +243,13 @@ void pso_mutate_conf(output_type& candidate, output_type& candidate_1, model& m,
 
 				/* 输出粒子进行MD模拟，然后输入回来 */
 				exportForMDSimulation(m, ref_m, candidate, remark, step, y);    // 输出粒子用于MD模拟
-				file_dk << "第" << std::setw(2) << std::setfill('0') << step + 1 << "次迭代的第" << std::setw(2) << std::setfill('0') << y + 1 << "个粒子的信息：	" << remark;    // 存储当前粒子的reamrk信息到OutputInfo文件中
+				file_dk << "第" << std::setw(4) << std::setfill('0') << step + 1 << "次迭代的第" << std::setw(4) << std::setfill('0') << y + 1 << "个粒子的信息：	" << remark;    // 存储当前粒子的reamrk信息到OutputInfo文件中
 				file_dk.flush();
 
 				candidate = importMDSimulationResults(m, step, y);    // MD模拟后到粒子输入回来
 				const fl lb_tmp = m.rmsd_lower_bound(ref_m);
     			const fl ub_tmp = m.rmsd_upper_bound(ref_m);
-				file_md << "第" << std::setw(2) << std::setfill('0') << step + 1 << "次迭代的第" << std::setw(2) << std::setfill('0') << y + 1 << "个粒子MD后的能量值：	" << candidate.e << "	" << lb_tmp << "	" << ub_tmp << "\n";    // 存储当前粒子的reamrk信息到OutputInfo文件中
+				file_md << "第" << std::setw(4) << std::setfill('0') << step + 1 << "次迭代的第" << std::setw(4) << std::setfill('0') << y + 1 << "个粒子MD后的能量值：	" << candidate.e << "	" << lb_tmp << "	" << ub_tmp << "\n";    // 存储当前粒子的reamrk信息到OutputInfo文件中
 				file_md.flush();
 
 				/* 如果MD模拟后到粒子能量小于当前的PBest */ 
@@ -295,13 +312,13 @@ void pso_mutate_conf(output_type& candidate, output_type& candidate_1, model& m,
 
 				/* 输出粒子进行MD模拟，然后输入回来 */
 				exportForMDSimulation(m, ref_m, candidate, remark, step, y);    // 输出粒子用于MD模拟
-				file_dk << "第" << std::setw(2) << std::setfill('0') << step + 1 << "次迭代的第" << std::setw(2) << std::setfill('0') << y + 1 << "个粒子的信息：	" << remark;    // 存储当前粒子的reamrk信息到OutputInfo文件中
+				file_dk << "第" << std::setw(4) << std::setfill('0') << step + 1 << "次迭代的第" << std::setw(4) << std::setfill('0') << y + 1 << "个粒子的信息：	" << remark;    // 存储当前粒子的reamrk信息到OutputInfo文件中
 				file_dk.flush();
 
 				candidate = importMDSimulationResults(m, step, y);    // MD模拟后到粒子输入回来
 				const fl lb_tmp = m.rmsd_lower_bound(ref_m);
     			const fl ub_tmp = m.rmsd_upper_bound(ref_m);
-				file_md << "第" << std::setw(2) << std::setfill('0') << step + 1 << "次迭代的第" << std::setw(2) << std::setfill('0') << y + 1 << "个粒子MD后的能量值：	" << candidate.e << "	" << lb_tmp << "	" << ub_tmp << "\n";    // 存储当前粒子的reamrk信息到OutputInfo文件中
+				file_md << "第" << std::setw(4) << std::setfill('0') << step + 1 << "次迭代的第" << std::setw(4) << std::setfill('0') << y + 1 << "个粒子MD后的能量值：	" << candidate.e << "	" << lb_tmp << "	" << ub_tmp << "\n";    // 存储当前粒子的reamrk信息到OutputInfo文件中
 				file_md.flush();
 
 				/* 如果MD模拟后到粒子能量小于当前的PBest */ 
